@@ -1,0 +1,5 @@
+{
+  "name": "MiniCompilador - Pipeline Bril",
+  "description": "Uma simulação educacional completa de compilador. Possui frontend (subconjunto TypeScript), visualização de AST, geração de IR baseada em Bril, otimização (Dead Code Elimination) e um interpretador.",
+  "requestFramePermissions": []
+}
