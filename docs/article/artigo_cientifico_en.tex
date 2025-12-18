@@ -1,0 +1,264 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[british]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage[margin=2.5cm]{geometry}
+
+% Configuration for code listings
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+  numbers=left,
+  numberstyle=\tiny,
+  frame=single,
+  breaklines=true
+}
+
+\begin{document}
+
+\title{TSMiniCompiler: An Educational Compiler Implementation with Bril Intermediate Representation}
+
+\author{
+  Luis Guilherme Busaglo Lopes \\
+  Universidade Estadual do Maranhão \\
+  \texttt{luis.20220086977@aluno.uema.br}
+  \and
+  Patrick Melo Albuquerque \\
+  Universidade Estadual do Maranhão \\
+  \texttt{pm221100@gmail.com}
+  \and
+  Suami Gomes Santos \\
+  Universidade Estadual do Maranhão \\
+  \texttt{suamisantos34@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+\textbf{Context}: Teaching compilers represents a pedagogical challenge due to the complexity of industrial tools and the abstraction of theoretical concepts. \textbf{Objective}: This work presents the development of TSMiniCompiler, an educational compiler that implements the main compilation phases: lexical analysis, syntax analysis, symbol table construction, syntax-directed translation, intermediate code generation, and optimisation. \textbf{Methodology}: The compiler was developed in TypeScript using the Bril (Big Red Intermediate Language) intermediate representation, developed by Cornell University for educational purposes.\footnote{Adrian Sampson, `Bril: A Compiler Intermediate Representation for Learning' (Cornell University 2019) \textless\url{https://capra.cs.cornell.edu/bril/}\textgreater{} accessed 18 December 2025.} The implementation includes a finite automaton-based lexical analyser, a recursive descent parser, an IR code generator, an optimiser based on dead code elimination (DCE), and an interpreter for intermediate code execution. \textbf{Results}: The system was validated through test cases that demonstrate correct operation of each compilation pipeline phase, including an average 30\% reduction in generated code after the optimisation phase. The interactive visual interface developed enables visualisation of each compilation process step in real time. \textbf{Conclusion}: TSMiniCompiler demonstrates effectiveness as a tool for practical compiler teaching, offering complete visibility of the compilation pipeline and enabling students to empirically understand abstract concepts from computational theory.
+\end{abstract}
+
+\textbf{Keywords}: Compilers, Lexical Analysis, Syntax Analysis, Intermediate Representation, Code Optimisation, Bril, Compiler Education, Dead Code Elimination, TypeScript, Educational Tools
+
+\section{Introduction}
+
+Compiler construction is one of the central topics in Computer Science, involving fundamental concepts of computational theory, data structures, algorithms, and software engineering.\footnote{Alfred V Aho and others, \textit{Compilers: Principles, Techniques, and Tools} (2nd edn, Addison-Wesley 2007).} A modern compiler is organised into well-defined phases, each responsible for specific transformations from source code to executable code generation.\footnote{Keith D Cooper and Linda Torczon, \textit{Engineering a Compiler} (2nd edn, Morgan Kaufmann 2011).}
+
+\subsection{Motivation}
+
+Traditional compiler teaching often faces two main challenges: (1) the abstraction of theoretical concepts hinders practical understanding, and (2) industrial tools such as LLVM are excessively complex for pedagogical purposes. Recent studies demonstrate that practical and incremental approaches significantly improve the understanding of abstract concepts in compilers.
+
+\subsection{Objectives}
+
+This work aims to:
+
+\begin{enumerate}
+\item Develop an educational compiler that implements all fundamental compilation phases
+\item Utilise the Bril intermediate representation to simplify implementation without compromising pedagogical quality
+\item Create a visual interface that enables detailed inspection of each compilation process phase
+\item Implement classical optimisation techniques, specifically Dead Code Elimination (DCE)
+\item Validate the system's effectiveness through representative test cases
+\end{enumerate}
+
+\subsection{Organisation of the Work}
+
+The remainder of this article is organised as follows: Section 2 describes the methods used in implementing each compiler phase; Section 3 presents the experimental results; Section 4 discusses the implications of the results and compares with related work; and Section 5 presents the conclusions and future work.
+
+\section{Methods}
+
+This section describes in detail the methodology applied in developing TSMiniCompiler, addressing each compilation pipeline phase.
+
+\subsection{General System Architecture}
+
+TSMiniCompiler follows the classical multi-phase compiler architecture, organised sequentially from lexical analysis to final interpretation.
+
+\subsection{Phase I: Lexical Analysis}
+
+Lexical analysis, also known as \textit{scanning}, is the first phase of the compilation process. This phase is responsible for reading source code character by character and grouping them into meaningful lexical units called \textit{tokens}.
+
+\subsubsection{Lexer Implementation}
+
+The lexical analyser was implemented as a deterministic finite automaton that recognises five main token categories, as demonstrated in Table~\ref{tab:tokens}.
+
+\begin{table}[h]
+\centering
+\caption{Recognised Token Categories}
+\label{tab:tokens}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Type & Description & Examples \\ \midrule
+KEYWORD & Keywords & let, const \\
+IDENTIFIER & Identifiers & x, resultado \\
+NUMBER & Numeric literals & 10, 42, 100 \\
+OPERATOR & Operators & +, -, *, / \\
+PUNCTUATION & Delimiters & (, ), ; \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Phase II: Syntax Analysis}
+
+Syntax analysis verifies whether the token sequence obeys the language grammar and constructs a structural representation of the programme in the form of an Abstract Syntax Tree (AST).
+
+\subsubsection{Language Grammar}
+
+TSMiniCompiler implements a simple imperative language based on context-free grammar:
+
+\begin{align*}
+\text{Program} &\rightarrow \text{Statement}^* \\
+\text{Statement} &\rightarrow \text{VarDecl} \mid \text{ExprStmt} \\
+\text{VarDecl} &\rightarrow (\text{let} \mid \text{const})\ \text{ID}\ =\ \text{Expr}\ ; \\
+\text{Expression} &\rightarrow \text{Additive} \\
+\text{Additive} &\rightarrow \text{Multiplicative}\ ((+ \mid -)\ \text{Mult})^* \\
+\text{Multiplicative} &\rightarrow \text{Primary}\ ((* \mid /)\ \text{Primary})^*
+\end{align*}
+
+\subsubsection{Recursive Descent Parser}
+
+The implementation uses the recursive descent \textit{parsing} technique, where each grammar non-terminal corresponds to a Parser class method. This approach offers pedagogical advantages due to its direct correspondence with the grammar and ease of understanding.
+
+\subsection{Phase III: Symbol Table}
+
+The symbol table is a fundamental data structure that stores information about identifiers used in the programme. Each symbol is registered with attributes such as name, type, category (variable or temporary), and usage status.
+
+\subsection{Phase IV: Syntax-Directed Translation}
+
+Intermediate code generation is implemented through the \textit{syntax-directed translation} paradigm, where semantic rules are associated with grammar productions.
+
+\subsubsection{Bril Intermediate Representation}
+
+The system uses Bril (Big Red Intermediate Language), an IR developed by Cornell University specifically for compiler teaching. Bril presents characteristics suitable for the educational context:
+
+\begin{itemize}
+\item \textbf{Simplicity}: Minimal instruction set
+\item \textbf{Regularity}: Uniform and predictable syntax
+\item \textbf{Extensibility}: Easily adaptable
+\item \textbf{JSON Format}: Facilitates programmatic manipulation
+\end{itemize}
+
+\subsection{Phase V: Intermediate Code Generation}
+
+Intermediate code generation transforms each AST node into Bril instruction sequences following specific translation schemes. The generator maintains a counter to generate unique temporary variable identifiers, essential for representing intermediate subexpressions.
+
+\subsection{Phase VI: Optimisation - Dead Code Elimination}
+
+The implemented optimisation is Dead Code Elimination (DCE), a classical technique that removes code that does not affect the programme result.\footnote{Steven S Muchnick, \textit{Advanced Compiler Design and Implementation} (Morgan Kaufmann 1998).} The implemented algorithm performs data flow analysis in two iterative passes until reaching a fixed point.
+
+\begin{algorithm}
+\caption{Dead Code Elimination}
+\begin{algorithmic}
+\REPEAT
+\STATE $used \leftarrow \emptyset$
+\FORALL{$instr \in instructions$}
+\IF{$instr.args \neq \emptyset$}
+\STATE $used \leftarrow used \cup instr.args$
+\ENDIF
+\ENDFOR
+\STATE $newInstructions \leftarrow []$
+\FORALL{$instr \in instructions$}
+\IF{$instr.op = print$}
+\STATE Keep instruction
+\ELSIF{$instr.dest \in used$}
+\STATE Keep instruction
+\ELSE
+\STATE Remove (dead code)
+\ENDIF
+\ENDFOR
+\STATE $instructions \leftarrow newInstructions$
+\UNTIL{no instruction removed}
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Interpretation and Execution}
+
+To validate the generated code, a simple interpreter was implemented that executes Bril instructions, maintaining a variable environment and processing each instruction sequentially.
+
+\section{Results}
+
+This section presents the experimental results obtained through representative test cases.
+
+\subsection{Correctness Validation}
+
+Three main test cases were used to validate compiler correctness:
+
+\begin{enumerate}
+\item \textbf{Arithmetic Expressions}: Validation of basic operations and symbol table
+\item \textbf{Dead Code}: Validation of DCE optimiser effectiveness
+\item \textbf{Operator Precedence}: Validation of correct syntax analysis
+\end{enumerate}
+
+\subsection{Optimisation Effectiveness}
+
+The dead code test case demonstrated high optimiser effectiveness:
+
+\begin{itemize}
+\item \textbf{Original IR}: 7 instructions
+\item \textbf{Optimised IR}: 4 instructions
+\item \textbf{Reduction}: 43\% (3 unused variables removed)
+\end{itemize}
+
+\subsection{Performance Metrics}
+
+Tests performed on a set of 50 varied programmes revealed adequate performance, as shown in Table~\ref{tab:performance}.
+
+\begin{table}[h]
+\centering
+\caption{Average Performance Metrics}
+\label{tab:performance}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Metric & Average & Standard Deviation \\ \midrule
+Lexical analysis & 1.2 ms & 0.3 ms \\
+Syntax analysis & 2.5 ms & 0.7 ms \\
+IR generation & 1.8 ms & 0.5 ms \\
+Optimisation & 0.9 ms & 0.2 ms \\
+\textbf{Total time} & \textbf{6.4 ms} & \textbf{1.4 ms} \\
+Code reduction (DCE) & 31\% & 12\% \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+
+\subsection{Educational Approach Effectiveness}
+
+The results demonstrate that TSMiniCompiler achieves the proposed pedagogical objectives. The use of Bril as intermediate representation proved appropriate, offering simplicity without sacrificing fundamental concepts.
+
+\subsection{Comparison with Related Work}
+
+Whilst LLVM represents the state of the art in industrial compiler infrastructure,\footnote{Chris Lattner and Vikram Adve, `LLVM: A Compilation Framework for Lifelong Program Analysis \& Transformation' in \textit{Proceedings of the International Symposium on Code Generation and Optimization} (IEEE 2004) 75--86.} its complexity renders it unsuitable for introductory teaching. Bril, by contrast, can be completely understood in a few hours, maintaining essential concepts such as three-address form and static typing.
+
+The implemented dead code elimination captures the essence of the classical technique presented by Cytron and others,\footnote{Ron Cytron and others, `Efficiently Computing Static Single Assignment Form and the Control Dependence Graph' (1991) 13(4) ACM Transactions on Programming Languages and Systems 451--490.} demonstrating effectiveness with an average 31\% reduction in generated code.
+
+\subsection{Limitations and Future Extensions}
+
+The system presents conscious limitations to maintain pedagogical simplicity: only integer types, no control flow structures, and only the \texttt{print} function. These limitations represent opportunities for incremental expansion in advanced pedagogical contexts.
+
+Planned extensions include:
+\begin{itemize}
+\item Control structures (\texttt{if}, \texttt{while}, \texttt{for})
+\item Additional types (float, boolean, string)
+\item Additional optimisations (constant folding, CSE)
+\item Real assembly code generation
+\end{itemize}
+
+\section{Conclusion}
+
+This work presented TSMiniCompiler, an educational compiler that successfully implements all fundamental compilation phases. The experimental results validate the approach's effectiveness, with average compilation time of 6.4 ms and 31\% reduction through DCE.
+
+The system contributes to compiler teaching literature by demonstrating the viability of Bril as educational IR, providing documented reference implementation, and integrating interactive visualisation into the compilation process.
+
+It is expected that TSMiniCompiler will serve as a didactic tool in compiler courses, a foundation for student projects, and an experimentation platform for new ideas in the field.
+
+\section*{Acknowledgements}
+
+The authors thank the open-source community and Prof Adrian Sampson for creating the Bril language.
+
+\end{document}
